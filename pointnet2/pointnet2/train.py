@@ -14,13 +14,13 @@ sys.path.append(ROOT_DIR) # provider
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 import provider
 import model as MODEL
-i=6
+i=3
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--log_dir', default='log{}'.format(i), help='Log dir [default: log]')
 parser.add_argument('--num_point', type=int, default=4096, help='Point Number [default: 8192]')
 parser.add_argument('--max_epoch', type=int, default=100, help='Epoch to run [default: 201]')
-parser.add_argument('--batch_size', type=int, default=8, help='Batch Size during training [default: 32]')
+parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 32]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
@@ -28,7 +28,7 @@ parser.add_argument('--decay_step', type=int, default=200000, help='Decay step f
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.7]')
 parser.add_argument('--input_train', type=str, default='data/train_hdf5_file_list_Area{}.txt'.format(i), help='Input train data')
 parser.add_argument('--input_test', type=str, default='data/test_hdf5_file_list_Area{}.txt'.format(i), help='Input test data')
-parser.add_argument('--restore_model', type=str, help='Pretrained model')
+parser.add_argument('--restore_model', type=str, default='./log{}'.format(i),help='Pretrained model')
 FLAGS = parser.parse_args()
 
 EPOCH_CNT = 0
@@ -111,6 +111,21 @@ def get_bn_decay(batch):
     bn_decay = tf.minimum(BN_DECAY_CLIP, 1 - bn_momentum)
     return bn_decay
 
+def load_checkpoint(checkpoint_dir, session, var_list=None):
+    print(' [*] Loading checkpoint...')
+    ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+    if ckpt and ckpt.model_checkpoint_path:
+        ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+        ckpt_path = os.path.join(checkpoint_dir, ckpt_name)
+    try:
+        restorer = tf.train.Saver(var_list)
+        restorer.restore(session, ckpt_path)
+        print(' [*] Loading successful! Copy variables from % s' % ckpt_path)
+        return True
+    except:
+        print(' [*] No suitable checkpoint!')
+        return False
+
 def train():
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
@@ -157,9 +172,13 @@ def train():
         test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'), sess.graph)
 
         # Init variables
-        init = tf.global_variables_initializer()
-        sess.run(init)
+        # init = tf.global_variables_initializer()
+        # sess.run(init)
         #sess.run(init, {is_training_pl: True})
+        if not load_checkpoint(PRETRAINED_MODEL_PATH, sess):
+            init = tf.global_variables_initializer()
+            sess.run(init)
+            sess.run(init, {is_training_pl: True})
 
         ops = {'pointclouds_pl': pointclouds_pl,
                'labels_pl': labels_pl,

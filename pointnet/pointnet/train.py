@@ -167,14 +167,6 @@ def train():
         init = tf.global_variables_initializer()
         sess.run(init, {is_training_pl: True})
 
-        # ckptstate = tf.train.get_checkpoint_state(PRETRAINED_MODEL_PATH)
-        # if ckptstate is not None:
-        #     LOAD_MODEL_FILE = os.path.join(PRETRAINED_MODEL_PATH, os.path.basename(ckptstate.model_checkpoint_path))
-        #     saver.restore(sess, LOAD_MODEL_FILE)
-        #     log_string("Model loaded in file: %s" % LOAD_MODEL_FILE)
-        # else:
-        #     log_string("Fail to load modelfile: %s" % PRETRAINED_MODEL_PATH)
-
 
         ops = {'pointclouds_pl': pointclouds_pl,
                'labels_pl': labels_pl,

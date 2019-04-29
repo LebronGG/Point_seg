@@ -2,7 +2,7 @@ import numpy as np
 import argparse
 import os
 parser = argparse.ArgumentParser()
-parser.add_argument('--test_area', type=int,help='The areas except this one will be used to estimate the mean instance size')
+parser.add_argument('--test_area',default=6,type=int,help='The areas except this one will be used to estimate the mean instance size')
 FLAGS = parser.parse_args()
 
 pred_data_label_file = [line.rstrip() for line in open('./log{}/output_filelist.txt'.format(FLAGS.test_area))]
@@ -35,9 +35,11 @@ for i in range(num_room):
 log_string('gt_classes:{}'.format(gt_classes))
 log_string('positive_classes:{}'.format(positive_classes))
 log_string('true_positive_classes:{}'.format(true_positive_classes))
+print 'sum(gt_classes:{}'.format(sum(gt_classes))
+print 'sum(positive_classes):{}'.format(sum(positive_classes))
+print 'sum(true_positive_classes:{}'.format(sum(true_positive_classes))
 
-
-log_string('Overall accuracy: {0}'.format(sum(true_positive_classes)/float(sum(positive_classes))))
+log_string('Overall accuracy: {}'.format(sum(true_positive_classes)/float(sum(positive_classes))))
 
 
 log_string('mIoU:')

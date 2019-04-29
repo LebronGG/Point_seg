@@ -6,25 +6,26 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 from model import *
 import indoor3d_util
-
+i=6
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 1]')
 parser.add_argument('--num_point', type=int, default=4096, help='Point number [default: 4096]')
-parser.add_argument('--model_path', required=True, help='model checkpoint file path')
-parser.add_argument('--dump_dir', required=True, help='dump folder path')
-parser.add_argument('--output_filelist', required=True, help='TXT filename, filelist, each line is an output for a room')
-parser.add_argument('--room_data_filelist', required=True, help='TXT filename, filelist, each line is a test room data label file.')
+parser.add_argument('--dump_dir', default='./log{}/dump'.format(i),help='dump folder path')
+parser.add_argument('--output_filelist',  default='./log{}/output_filelist.txt'.format(i),help='TXT filename, filelist, each line is an output for a room')
+parser.add_argument('--room_data_filelist', default='./meta/area{}_data_label.txt'.format(i), help='TXT filename, filelist, each line is a test room data label file.')
+parser.add_argument('--restore_model', type=str,default='./log{}'.format(i),help='Pretrained model')
 parser.add_argument('--no_clutter', action='store_true', help='If true, donot count the clutter class')
-parser.add_argument('--visu', action='store_false', help='Whether to output OBJ file for prediction visualization.')
+parser.add_argument('--visu', action='store_false',default=False,help='Whether to output OBJ file for prediction visualization.')
 FLAGS = parser.parse_args()
 
 BATCH_SIZE = FLAGS.batch_size
 NUM_POINT = FLAGS.num_point
-MODEL_PATH = FLAGS.model_path
 GPU_INDEX = FLAGS.gpu
 DUMP_DIR = FLAGS.dump_dir
-if not os.path.exists(DUMP_DIR): os.mkdir(DUMP_DIR)
+ckpt_dir=FLAGS.restore_model
+if not os.path.exists(DUMP_DIR):
+    os.mkdir(DUMP_DIR)
 LOG_FOUT = open(os.path.join(DUMP_DIR, 'log_evaluate.txt'), 'w')
 LOG_FOUT.write(str(FLAGS)+'\n')
 ROOM_PATH_LIST = [os.path.join(ROOT_DIR,line.rstrip()) for line in open(FLAGS.room_data_filelist)]
@@ -35,6 +36,21 @@ def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
     LOG_FOUT.flush()
     print(out_str)
+
+def load_checkpoint(checkpoint_dir, session, var_list=None):
+    print(' [*] Loading checkpoint...')
+    ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+    if ckpt and ckpt.model_checkpoint_path:
+        ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+        ckpt_path = os.path.join(checkpoint_dir, ckpt_name)
+    try:
+        restorer = tf.train.Saver(var_list)
+        restorer.restore(session, ckpt_path)
+        print(' [*] Loading successful! Copy variables from % s' % ckpt_path)
+        return True
+    except:
+        print(' [*] No suitable checkpoint!')
+        return False
 
 def evaluate():
 
@@ -47,9 +63,7 @@ def evaluate():
         loss = get_loss(pred, labels_pl)
         pred_softmax = tf.nn.softmax(pred)
  
-        # Add ops to save and restore all the variables.
-        saver = tf.train.Saver()
-        
+
     # Create a session
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
@@ -58,8 +72,8 @@ def evaluate():
     sess = tf.Session(config=config)
 
     # Restore variables from disk.
-    saver.restore(sess, MODEL_PATH)
-    log_string("Model restored.")
+    if not load_checkpoint(ckpt_dir, sess):
+        exit()
 
     ops = {'pointclouds_pl': pointclouds_pl,
            'labels_pl': labels_pl,
